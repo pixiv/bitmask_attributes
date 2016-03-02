@@ -15,13 +15,13 @@ module BitmaskAttributes
 
     alias_method :orig_replace, :replace
     %w(push << delete replace reject! select!).each do |override|
-      class_eval(<<-EOEVAL)
+      class_eval <<-METHOD, __FILE__, __LINE__ + 1
         def #{override}(*args)
           (super).tap do
             updated!
           end
         end
-      EOEVAL
+      METHOD
     end
 
     def to_i

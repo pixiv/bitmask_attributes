@@ -35,6 +35,7 @@ module BitmaskAttributes
 
       def missing_attribute(attribute, model)
         message = "WARNING: `#{attribute}' is not an attribute of `#{model.class.name}'. But, it's ok if it happens during migrations and your \"bitmasked\" attribute is still not created."
+
         if defined?(Rails)
           Rails.logger.warn message
         else
@@ -56,18 +57,18 @@ module BitmaskAttributes
       end
 
       def override_getter_on(model)
-        model.class_eval %(
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           def #{attribute}
             @#{attribute} ||= BitmaskAttributes::ValueProxy.new(self, :#{attribute}, &self.class.bitmask_definitions[:#{attribute}].extension)
           end
           def reload_#{attribute}
             @#{attribute} = nil
           end
-        )
+        METHOD
       end
 
       def override_setter_on(model)
-        model.class_eval %(
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           def #{attribute}=(raw_value)
             values = raw_value.kind_of?(Array) ? raw_value : [raw_value]
             self.#{attribute}.replace(values.reject{|value| #{eval_string_for_zero('value')}})
@@ -82,20 +83,20 @@ module BitmaskAttributes
             @#{attribute} = nil
             self.send(:write_attribute, :#{attribute}, entry)
           end
-        )
+        METHOD
       end
 
       # Returns the defined values as an Array.
       def create_attribute_methods_on(model)
-        model.class_eval %(
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           def self.values_for_#{attribute}      # def self.values_for_numbers
             #{values}                           #   [:one, :two, :three]
           end                                   # end
-        )
+        METHOD
       end
 
       def create_convenience_class_method_on(model)
-        model.class_eval %(
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           def self.bitmask_for_#{attribute}(*values)
             values.inject(0) do |bitmask, value|
               if #{eval_string_for_zero('value')}
@@ -117,18 +118,19 @@ module BitmaskAttributes
               end
             end
           end
-        )
+        METHOD
       end
 
       def create_convenience_instance_methods_on(model)
         values.each do |value|
-          model.class_eval %(
+          model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
             def #{attribute}_for_#{value}?
               self.#{attribute}?(:#{value})
             end
-          )
+          METHOD
         end
-        model.class_eval %(
+
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           def #{attribute}?(*values)
             if !values.blank?
               values.all? do |value|
@@ -138,13 +140,13 @@ module BitmaskAttributes
               self.#{attribute}.present?
             end
           end
-        )
+        METHOD
       end
 
       def create_scopes_on(model)
         or_is_null_condition = " OR #{model.table_name}.#{attribute} IS NULL" if allow_null
 
-        model.class_eval %(
+        model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
           scope :with_#{attribute},
             proc { |*values|
               if values.blank?
@@ -157,6 +159,7 @@ module BitmaskAttributes
                 where(sets.join(' AND '))
               end
             }
+
           scope :without_#{attribute},
             proc { |*values|
               if values.blank?
@@ -185,12 +188,13 @@ module BitmaskAttributes
                 where("#{model.table_name}.#{attribute} & ? > 0", ::#{model}.bitmask_for_#{attribute}(*values))
               end
             }
-        )
+        METHOD
+
         values.each do |value|
-          model.class_eval %(
+          model.class_eval <<-METHOD, __FILE__, __LINE__ + 1
             scope :#{attribute}_for_#{value},
                   proc { where('#{model.table_name}.#{attribute} & ? > 0', ::#{model}.bitmask_for_#{attribute}(:#{value})) }
-          )
+          METHOD
         end
       end
 
