@@ -1,4 +1,3 @@
-
 require 'bitmask_attributes/definition'
 require 'bitmask_attributes/value_proxy'
 
