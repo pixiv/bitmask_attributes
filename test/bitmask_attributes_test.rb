@@ -59,6 +59,8 @@ class BitmaskAttributesTest < ActiveSupport::TestCase
         assert_stored campaign, :web, :print
         campaign.medium_bitmask = 0
         assert_empty campaign.medium
+        campaign.medium = 5
+        assert_stored campaign, :web, :email
       end
 
       should "can save bitmask to db and retrieve values transparently" do
@@ -291,24 +293,22 @@ class BitmaskAttributesTest < ActiveSupport::TestCase
         assert campaign.save
         assert_equal [:one],campaign.allow_zero
       end
+    end
 
+    private
 
-      private
+    def assert_unsupported(&block)
+      assert_raises(ArgumentError, &block)
+    end
 
-        def assert_unsupported(&block)
-          assert_raises(ArgumentError, &block)
-        end
-
-        def assert_stored(record, *values)
-          values.each do |value|
-            assert record.medium.any? { |v| v.to_s == value.to_s }, "Values #{record.medium.inspect} does not include #{value.inspect}"
-          end
-          full_mask = values.inject(0) do |mask, value|
-            mask | @campaign_class.bitmasks[:medium][value]
-          end
-          assert_equal full_mask, record.medium.to_i
-        end
-
+    def assert_stored(record, *values)
+      values.each do |value|
+        assert record.medium.any? { |v| v.to_s == value.to_s }, "Values #{record.medium.inspect} does not include #{value.inspect}"
+      end
+      full_mask = values.inject(0) do |mask, value|
+        mask | @campaign_class.bitmasks[:medium][value]
+      end
+      assert_equal full_mask, record.medium.to_i
     end
   end
 
@@ -318,7 +318,7 @@ class BitmaskAttributesTest < ActiveSupport::TestCase
     assert_equal DefaultValue.new(:default_sym => :x).default_sym, [:x]
     assert_equal DefaultValue.new(:default_array => [:x]).default_array, [:x]
   end
-  
+
   should "save empty bitmask when default defined" do
     default = DefaultValue.create
     assert_equal [:y], default.default_sym
@@ -333,7 +333,7 @@ class BitmaskAttributesTest < ActiveSupport::TestCase
   context_with_classes 'Campaign without null attributes', CampaignWithoutNull, CompanyWithoutNull
   context_with_classes 'SubCampaign with null attributes', SubCampaignWithNull, CompanyWithNull
   context_with_classes 'SubCampaign without null attributes', SubCampaignWithoutNull, CompanyWithoutNull
-  
+
   should "allow subclasses to have different values for bitmask than parent" do
     a = CampaignWithNull.new
     b = SubCampaignWithNull.new
@@ -346,5 +346,5 @@ class BitmaskAttributesTest < ActiveSupport::TestCase
     assert_equal a.different_per_class, [:set_for_parent]
     assert_equal b.different_per_class, [:set_for_sub]
   end
-  
+
 end
